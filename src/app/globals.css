@@ -1,26 +1,364 @@
 @import "tailwindcss";
 
+/*
+ * Natal em 3D "clay": fundo verde-pinheiro profundo (cena de vilarejo nevado),
+ * superfícies creme em relevo, acentos de cobre e dourado.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --forest-950: #10211b;
+  --forest-900: #173028;
+  --forest-800: #1f3d33;
+  --forest-700: #2a5244;
+  --forest-600: #376655;
+  --copper: #c4623d;
+  --copper-600: #a94f2f;
+  --copper-edge: #85391f;
+  --gold: #d9a55a;
+  --gold-soft: #ecc98f;
+  --cream: #f5eadb;
+  --cream-200: #eadac2;
+  --cream-edge: #d5bf9e;
+  --ink: #2b211d;
+  /* cor de texto "de contexto": creme sobre o verde, escura dentro de superfícies claras */
+  --ink-ctx: var(--cream);
+}
+
+/* Superfícies claras redefinem o contexto: text-ink/xx fica escuro lá dentro */
+.card, .well, .chip3d, .surface-light {
+  --ink-ctx: var(--ink);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* nomes mantidos (pine/berry) para todo o app herdar a nova paleta */
+  --color-pine-950: var(--forest-950);
+  --color-pine-900: var(--forest-900);
+  --color-pine-800: var(--forest-800);
+  --color-pine-700: var(--forest-700);
+  --color-pine-600: var(--forest-600);
+  --color-berry: var(--copper);
+  --color-berry-600: var(--copper-600);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-cream: var(--cream);
+  --color-cream-200: var(--cream-200);
+  --color-ink: var(--ink-ctx);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--forest-900);
+  color: var(--cream);
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--gold-soft);
+  color: var(--ink);
+}
+
+/* Fundo da página: verde profundo com luz suave vinda de cima e "poeira" de neve */
+.scene {
+  background-color: var(--forest-900);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(236 201 143 / 0.16), transparent 60%),
+    radial-gradient(circle at 0% 100%, rgb(196 98 61 / 0.12), transparent 40%),
+    radial-gradient(circle at 100% 60%, rgb(55 102 85 / 0.5), transparent 45%),
+    radial-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1.5px);
+  background-size: auto, auto, auto, 28px 28px;
+  background-attachment: fixed;
+}
+
+/* Painel verde em relevo (hero, ingresso) */
+.night {
+  background: linear-gradient(165deg, var(--forest-700) 0%, var(--forest-800) 55%, var(--forest-950) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    inset 0 -6px 12px rgb(0 0 0 / 0.25),
+    0 8px 0 #0c1a15,
+    0 30px 50px -20px rgb(0 0 0 / 0.7);
+}
+
+.gold-text {
+  background: linear-gradient(100deg, #f3d9a6 0%, #d9a55a 45%, #f6e2b8 70%, #c98f45 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --------------------------------------------------------------- superfícies clay */
+
+/* Cartão creme em relevo: brilho em cima, "espessura" embaixo e sombra projetada */
+@utility card {
+  border-radius: 1.75rem;
+  color: var(--ink);
+  background: linear-gradient(160deg, #fcf5ea 0%, #f1e4d0 100%);
+  box-shadow:
+    inset 0 2px 1px rgb(255 255 255 / 0.9),
+    inset 0 -3px 2px rgb(120 80 40 / 0.08),
+    0 6px 0 var(--cream-edge),
+    0 26px 44px -16px rgb(0 0 0 / 0.6);
+}
+
+/* Bloco creme afundado (lista interna, áreas vazias) */
+@utility well {
+  border-radius: 1.25rem;
+  background: #efe2ce;
+  box-shadow:
+    inset 0 3px 6px rgb(110 75 40 / 0.16),
+    inset 0 -1px 0 rgb(255 255 255 / 0.7);
+}
+
+/* Peça pequena em relevo dentro de cartões (itens, ícones) */
+@utility chip3d {
+  border-radius: 1.1rem;
+  background: linear-gradient(160deg, #ffffff 0%, #f6ecdd 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255),
+    0 3px 0 #e0cdb0,
+    0 10px 18px -10px rgb(70 40 20 / 0.45);
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 h-11 text-sm font-semibold
+    cursor-pointer select-none transition-[transform,box-shadow,background] duration-150
+    disabled:opacity-60 disabled:pointer-events-none;
+}
+
+/* Botão cobre em relevo: afunda ao clicar */
+@utility btn-primary {
+  @apply btn text-cream;
+  background: linear-gradient(180deg, #d9744c 0%, #b9542f 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 4px 0 var(--copper-edge),
+    0 14px 22px -10px rgb(133 57 31 / 0.8);
+  &:hover { background: linear-gradient(180deg, #e07d55 0%, #c05a34 100%); }
+  &:active { transform: translateY(3px); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 1px 0 var(--copper-edge); }
+}
+
+/* Pílula creme (como os botões da referência de Natal) */
+@utility btn-gold {
+  @apply btn;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fbf2e3 0%, #ecdcc2 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 4px 0 var(--cream-edge),
+    0 14px 24px -10px rgb(0 0 0 / 0.55);
+  &:hover { background: linear-gradient(180deg, #fff8ec 0%, #f1e3cc 100%); }
+  &:active { transform: translateY(3px); box-shadow: inset 0 1px 0 #fff, 0 1px 0 var(--cream-edge); }
+}
+
+@utility btn-ghost {
+  @apply btn text-ink;
+  background: rgb(43 33 29 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(43 33 29 / 0.12);
+  &:hover { background: rgb(43 33 29 / 0.09); }
+}
+
+/* Pílula de vidro escuro sobre o verde */
+@utility btn-ghost-light {
+  @apply btn text-cream;
+  background: rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  &:hover { background: rgb(255 255 255 / 0.12); }
+}
+
+/* Campo afundado */
+@utility field {
+  @apply w-full h-12 rounded-2xl px-4 text-[15px] outline-none transition;
+  color: var(--ink);
+  background: #f8efe1;
+  box-shadow: inset 0 2px 5px rgb(110 75 40 / 0.18), inset 0 -1px 0 rgb(255 255 255 / 0.8);
+  &:focus { box-shadow: inset 0 2px 5px rgb(110 75 40 / 0.18), 0 0 0 3px rgb(196 98 61 / 0.35); }
+}
+
+@layer base {
+  .field::placeholder { color: rgb(43 33 29 / 0.38); }
+}
+
+@utility label {
+  @apply block text-[13px] font-medium text-ink/70 mb-1.5;
+}
+
+@utility eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-[0.22em];
+}
+
+/* --------------------------------------------------------------- enfeites */
+
+/* Bola de Natal em CSS (esfera com brilho) */
+.ornament {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 28%, #f6b493 0%, #d06a43 30%, #9c3f22 70%, #6e2813 100%);
+  box-shadow: 0 10px 20px -6px rgb(0 0 0 / 0.55);
+  animation: bob 6s ease-in-out infinite;
+}
+.ornament::before {
+  /* tampinha */
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -14%;
+  width: 26%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: linear-gradient(#e9c27d, #a77b33);
+}
+.ornament.gold {
+  background: radial-gradient(circle at 32% 28%, #fff1cf 0%, #e3b264 32%, #a8752d 72%, #6f4a15 100%);
+}
+.ornament.green {
+  background: radial-gradient(circle at 32% 28%, #a6d0b6 0%, #4f8a6d 32%, #2a5244 72%, #173028 100%);
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-10px) rotate(4deg); }
+}
+
+/* Borda de neve ondulada (a "beirada" do diorama) */
+.snow-edge {
+  height: 22px;
+  background:
+    radial-gradient(circle at 12px 0, #f5eadb 11px, transparent 12px) 0 0 / 24px 22px repeat-x;
+  filter: drop-shadow(0 6px 6px rgb(0 0 0 / 0.35));
+}
+
+/* Neve */
+@keyframes fall {
+  0% { transform: translate3d(0, -10vh, 0); }
+  100% { transform: translate3d(var(--drift, 20px), 110vh, 0); }
+}
+.snowflake {
+  position: absolute;
+  top: 0;
+  border-radius: 9999px;
+  background: white;
+  animation: fall linear infinite;
+  will-change: transform;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.07);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent);
+  animation: shimmer 1.4s infinite;
+}
+.card .skeleton { background: rgb(43 33 29 / 0.07); }
+.card .skeleton::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.6), transparent); }
+
+/* Cartões clicáveis: sobem e ganham um brilho dourado */
+.card.group {
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s;
+}
+.card.group:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 2px 1px rgb(255 255 255 / 0.9),
+    inset 0 -3px 2px rgb(120 80 40 / 0.08),
+    0 8px 0 var(--cream-edge),
+    0 36px 52px -16px rgb(0 0 0 / 0.65),
+    0 0 0 2px rgb(217 165 90 / 0.45);
+}
+
+/* Emojis e peças que flutuam suavemente */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
+}
+.float { display: inline-block; animation: float 4.5s ease-in-out infinite; }
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+/* Pisca-pisca de Natal */
+.lights {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  height: 26px;
+  pointer-events: none;
+}
+.lights .seg {
+  position: relative;
+  flex: 0 0 64px;
+  height: 14px;
+  border-bottom: 2px solid #0a1511;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+.lights .bulb {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 8px;
+  height: 11px;
+  margin-left: -4px;
+  border-radius: 50% 50% 45% 45%;
+  background: var(--c);
+  box-shadow: 0 0 10px 2px var(--c);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+.lights .seg:nth-child(4n + 1) { --c: #ff8a5c; }
+.lights .seg:nth-child(4n + 2) { --c: #ffd27a; }
+.lights .seg:nth-child(4n + 3) { --c: #7fd6a4; }
+.lights .seg:nth-child(4n + 4) { --c: #ff6f7d; }
+.lights .seg:nth-child(3n) .bulb { animation-delay: -0.8s; }
+.lights .seg:nth-child(3n + 1) .bulb { animation-delay: -1.6s; }
+.lights .seg:nth-child(5n) .bulb { animation-duration: 3.1s; }
+@keyframes twinkle {
+  0%, 100% { opacity: 1; filter: brightness(1.15); }
+  50% { opacity: 0.35; filter: brightness(0.7); }
+}
+
+/* Janelas acesas do vilarejo e fumaça da chaminé */
+@keyframes glow {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.78; }
+  60% { opacity: 1; }
+}
+.win { animation: glow 3.8s ease-in-out infinite; }
+.win:nth-of-type(2n) { animation-delay: -1.4s; }
+@keyframes smoke {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0.55; }
+  100% { transform: translate(10px, -34px) scale(1.5); opacity: 0; }
+}
+.smoke { transform-box: fill-box; transform-origin: center; animation: smoke 5s ease-out infinite; }
+.smoke:nth-of-type(2) { animation-delay: -2.5s; }
+@keyframes twinkle-star {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.25; }
+}
+.star { animation: twinkle-star 3s ease-in-out infinite; }
+.star:nth-of-type(2n) { animation-delay: -1.2s; }
+.star:nth-of-type(3n) { animation-delay: -2.1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .float, .float-slow, .lights .bulb, .win, .smoke, .star { animation: none; }
+  .snowflake, .rise, .skeleton::after, .ornament { animation: none; }
+  .snowflake { display: none; }
 }
