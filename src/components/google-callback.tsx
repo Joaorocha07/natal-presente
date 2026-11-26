@@ -22,7 +22,11 @@ export function GoogleCallback() {
 
       const supabase = googleClient();
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error || !data.session) throw new Error("Não foi possível entrar com o Google.");
+      if (error || !data.session) {
+        console.error("[google-login] troca do code falhou:", error);
+        // Mostra o motivo do Supabase (ex.: chave inválida, link já usado) para facilitar o suporte
+        throw new Error(`Não foi possível entrar com o Google.${error?.message ? ` (${error.message})` : ""}`);
+      }
       const token = data.session.access_token;
 
       // Valida no servidor ANTES de encerrar a sessão do Supabase: o signOut

@@ -92,15 +92,21 @@ export async function loginWithGoogle(accessToken: string, next: string): Promis
 
   const avatar = safeUrl(String(meta.avatar_url ?? meta.picture ?? ""));
 
-  const existing = await data.findUserByEmail(email);
-  // Conta nova: senha aleatória (inutilizável), a pessoa entra sempre pelo Google
-  const id =
-    existing?.id ?? (await data.createUser(name, email, hashPassword(randomBytes(32).toString("hex")), avatar));
-  if (existing && avatar) {
-    // Foto é enfeite: se a coluna ainda não existir, o login segue normalmente
-    await data.setUserAvatar(existing.id, avatar).catch((e) => console.error("[google-login] foto:", e));
+  try {
+    const existing = await data.findUserByEmail(email);
+    // Conta nova: senha aleatória (inutilizável), a pessoa entra sempre pelo Google
+    const id =
+      existing?.id ?? (await data.createUser(name, email, hashPassword(randomBytes(32).toString("hex")), avatar));
+    if (existing && avatar) {
+      // Foto é enfeite: se a coluna ainda não existir, o login segue normalmente
+      await data.setUserAvatar(existing.id, avatar).catch((e) => console.error("[google-login] foto:", e));
+    }
+    await createSession(id);
+  } catch (e) {
+    // Em produção o Next esconde a mensagem do erro; registra nos logs e devolve um aviso legível
+    console.error("[google-login] falha ao salvar usuário/sessão no banco:", e);
+    return { error: "Entramos no Google, mas não deu para acessar o banco do site. Confira o SUPABASE_SECRET_KEY." };
   }
-  await createSession(id);
   return { redirectTo: safeNext(next) };
 }
 
