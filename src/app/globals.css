@@ -362,3 +362,18 @@ body {
   .snowflake, .rise, .skeleton::after, .ornament { animation: none; }
   .snowflake { display: none; }
 }
+
+/* Modal de confirmação: entra com um "pulo" leve e fundo escurecendo */
+@keyframes dialog-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes dialog-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.confirm-dialog[open] { animation: dialog-pop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1.1); }
+.confirm-dialog[open]::backdrop { animation: dialog-fade 0.2s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog[open], .confirm-dialog[open]::backdrop { animation: none; }
+}

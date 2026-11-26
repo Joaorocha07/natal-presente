@@ -150,11 +150,13 @@ export function CategoryRow({ category: c }: { category: Category }) {
       </button>
       <form action={removeCategory.bind(null, c.id)}>
         <ConfirmSubmit
+          title={`Excluir “${c.name}”?`}
           message={
             c.product_count
-              ? `Excluir “${c.name}”? ${c.product_count} ${c.product_count === 1 ? "produto fica" : "produtos ficam"} sem categoria.`
-              : `Excluir “${c.name}”?`
+              ? `${c.product_count} ${c.product_count === 1 ? "produto fica" : "produtos ficam"} sem categoria.`
+              : "Nenhum produto usa esta categoria."
           }
+          confirmLabel="Excluir"
           className="grid size-9 place-items-center rounded-full text-ink/45 transition hover:bg-berry/10 hover:text-berry"
         >
           <TrashIcon className="size-4" />

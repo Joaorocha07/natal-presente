@@ -12,7 +12,7 @@ import { InviteShare } from "@/components/invite-share";
 import { GroupForm } from "@/components/group-form";
 import { ConfirmSubmit } from "@/components/form-bits";
 import { Snow } from "@/components/snow";
-import { ArrowRightIcon, CalendarIcon, CrownIcon, GiftIcon, UserMinusIcon, UsersIcon } from "@/components/icons";
+import { ArrowRightIcon, CalendarIcon, CrownIcon, GiftIcon, LogOutIcon, UserMinusIcon, UsersIcon } from "@/components/icons";
 
 export const metadata: Metadata = pageMeta(
   "Grupo de amigo oculto",
@@ -183,7 +183,10 @@ async function GroupView({
                 <div className="flex shrink-0 items-center gap-2">
                   <form action={makeOrganizer.bind(null, id, m.id)}>
                     <ConfirmSubmit
-                      message={`Passar a organização do grupo para ${m.name}? Você continua participando, mas deixa de poder editar o grupo e gerenciar as pessoas.`}
+                      title={`Passar a organização para ${firstName(m.name)}?`}
+                      message="Você continua no grupo como participante, mas deixa de poder editar o grupo e gerenciar as pessoas."
+                      confirmLabel="Tornar organizador"
+                      tone="gold"
                       className="btn h-9 gap-1.5 border border-gold/40 bg-gold/10 px-3 text-[13px] text-[#7a5c0f] hover:bg-gold/20"
                     >
                       <CrownIcon className="size-4" /> Tornar organizador
@@ -191,7 +194,10 @@ async function GroupView({
                   </form>
                   <form action={removeMember.bind(null, id, m.id)}>
                     <ConfirmSubmit
-                      message={`Remover ${m.name} do grupo? A lista de desejos dessa pessoa neste grupo será apagada.`}
+                      title={`Remover ${firstName(m.name)} do grupo?`}
+                      message={`A lista de desejos de ${m.name} neste grupo será apagada. A pessoa só volta se receber o link de convite de novo.`}
+                      confirmLabel="Remover"
+                      icon={<UserMinusIcon className="size-6" />}
                       className="btn h-9 gap-1.5 border border-berry/25 px-3 text-[13px] text-berry hover:bg-berry/5"
                     >
                       <UserMinusIcon className="size-4" />
@@ -225,7 +231,9 @@ async function GroupView({
               <form action={deleteGroup.bind(null, id)} className="mt-8 border-t border-ink/[0.06] pt-6">
                 <p className="text-sm text-ink/60">Excluir o grupo apaga as listas de todos os participantes.</p>
                 <ConfirmSubmit
-                  message="Excluir o grupo e todas as listas? Isso não pode ser desfeito."
+                  title="Excluir o grupo?"
+                  message="O grupo e as listas de desejos de todos os participantes serão apagados. Isso não pode ser desfeito."
+                  confirmLabel="Excluir grupo"
                   className="btn mt-3 border border-berry/30 text-berry hover:bg-berry/5"
                 >
                   Excluir grupo
@@ -236,7 +244,10 @@ async function GroupView({
         ) : (
           <form action={leaveGroup.bind(null, id)} className="text-center">
             <ConfirmSubmit
-              message="Sair do grupo? Sua lista de desejos deste grupo será apagada."
+              title="Sair do grupo?"
+              message="Sua lista de desejos deste grupo será apagada. Para voltar, você vai precisar do link de convite."
+              confirmLabel="Sair do grupo"
+              icon={<LogOutIcon className="size-6" />}
               className="text-sm text-ink/45 underline-offset-4 hover:text-berry hover:underline"
             >
               Sair do grupo, {firstName(user.name)}?

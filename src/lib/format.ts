@@ -18,6 +18,17 @@ export function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
+/** Nome em CAIXA ALTA vira "Nome Próprio" para exibição ("JOAO DA SILVA" → "Joao da Silva") */
+export function prettyName(name: string) {
+  const n = name.trim().replace(/\s+/g, " ");
+  if (n !== n.toUpperCase() || n === n.toLowerCase()) return n;
+  return n
+    .toLowerCase()
+    .split(" ")
+    .map((w, i) => (i > 0 && /^(da|de|do|das|dos|e)$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 export function firstName(name: string) {
   return name.trim().split(/\s+/)[0];
 }

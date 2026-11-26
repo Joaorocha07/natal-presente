@@ -103,7 +103,9 @@ async function Products() {
                     </a>
                     <form action={removeCatalogProduct.bind(null, p.id)}>
                       <ConfirmSubmit
-                        message={`Excluir "${p.title}"?`}
+                        title="Excluir produto?"
+                        message={`"${p.title}" sai do catálogo e das sugestões.`}
+                        confirmLabel="Excluir"
                         className="grid size-9 place-items-center rounded-full text-ink/45 transition hover:bg-berry/10 hover:text-berry"
                       >
                         <TrashIcon className="size-4" />
