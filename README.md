@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎁 Amigo Oculto · Presentes de Natal
 
-## Getting Started
+Site em Next.js 16 para organizar amigo oculto: a pessoa cria o grupo, define o valor máximo e convida a turma por link.
+Cada participante monta uma lista de desejos com várias opções dentro do valor. Depois do sorteio (feito por vocês),
+é só abrir o perfil do amigo oculto e escolher um presente.
 
-First, run the development server:
+## Rodar
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Banco de dados (Supabase)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. No Supabase, abra **SQL Editor**, cole o conteúdo de `supabase/migrations/0001_init.sql` e clique em **Run**.
+2. Copie `.env.example` para `.env.local` e preencha a URL e as chaves do projeto.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+O app acessa o banco só pelo servidor, com a chave secreta. As tabelas têm RLS ligado e sem políticas,
+então a chave publicável sozinha não lê nem grava nada.
 
-## Learn More
+## Sugestões de produtos
 
-To learn more about Next.js, take a look at the following resources:
+- **Mercado Livre (API oficial)**: a busca da API exige token desde 2025. Crie um app em
+  https://developers.mercadolivre.com.br/devcenter, copie `.env.example` para `.env.local` e preencha
+  `ML_CLIENT_ID` / `ML_CLIENT_SECRET`. A busca passa a trazer produtos reais com foto, preço e link, filtrados pelo valor do grupo.
+- **Sem credenciais**: usa um catálogo curado de ideias com preço médio de referência e links de busca no
+  Mercado Livre e na Amazon já filtrados pelo valor máximo.
+- A pessoa também pode colar o link de qualquer loja e informar o preço.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Amazon: a API de produtos (PA-API) só é liberada para afiliados aprovados com vendas. Por isso entram links de busca filtrados.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura
 
-## Deploy on Vercel
+| Caminho | O quê |
+| --- | --- |
+| `supabase/migrations/` | Schema do banco (Postgres/Supabase) |
+| `src/lib/db.ts` | Cliente Supabase do servidor |
+| `src/lib/data.ts` | Consultas (grupos, membros, desejos), com checagem de participação |
+| `src/lib/auth.ts` | Contas com senha (scrypt) e sessão por cookie httpOnly |
+| `src/lib/products.ts` | Integração com o Mercado Livre e catálogo curado |
+| `src/app/actions.ts` | Server Actions (login, grupos, lista) |
+| `src/app/grupos/[id]` | Grupo, perfil de cada membro e minha lista |
+| `src/app/convite/[code]` | Página de convite |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Funciona na Vercel: cadastre as variáveis do `.env.example` nas configurações do projeto e faça o deploy.
+# natal-presente
