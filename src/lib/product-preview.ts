@@ -8,9 +8,61 @@ export type ProductPreview = {
   price: number | null; // centavos
   /** todas as fotos encontradas, a principal primeiro (até 8) */
   images: string[];
+  /** resumo curto do produto, quando a loja informa */
+  description: string | null;
 };
 
 const MAX_IMAGES = 8;
+const MAX_DESCRIPTION = 200;
+
+/** Parâmetros de rastreio de anúncios (Google, Facebook, Mercado Livre…) */
+const TRACKING = /^(utm_|matt_|cq_|gad_|gclid$|gbraid$|wbraid$|fbclid$|msclkid$|tracking_id$)/i;
+
+/**
+ * Link limpo para salvar e compartilhar: remove rastreio de anúncio.
+ * Anúncios do Mercado Livre não precisam de nenhum parâmetro.
+ */
+export function cleanProductUrl(raw: string): string {
+  const url = new URL(raw);
+  url.hash = "";
+  if (/mercadoli[vb]re\.com/.test(url.hostname) && /MLB-?\d{6,}/i.test(url.href)) {
+    url.search = "";
+  } else {
+    for (const key of [...url.searchParams.keys()]) if (TRACKING.test(key)) url.searchParams.delete(key);
+  }
+  return url.toString();
+}
+
+/** "MLB-123-caneca-magica-harry-potter-_JM" → "Caneca magica harry potter" (quando a loja bloqueia a leitura) */
+function titleFromMlSlug(url: URL): string | null {
+  const slug =
+    url.pathname.match(/MLB-?\d+-([^/]+?)(?:-_JM)?\/?$/i)?.[1] ?? url.pathname.match(/\/([^/]+)\/p\/MLB\d+/i)?.[1];
+  if (!slug) return null;
+  let words: string;
+  try {
+    words = decodeURIComponent(slug);
+  } catch {
+    words = slug;
+  }
+  words = words.replace(/[-_]+/g, " ").trim();
+  return words.length >= 3 ? (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 140) : null;
+}
+
+/** Texto corrido e curto: tira HTML, junta espaços e corta no fim de uma frase */
+function shortDescription(text: unknown, title: string | null): string | null {
+  if (typeof text !== "string") return null;
+  let t = decode(text.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  if (t.length < 12) return null;
+  // Descrição igual (ou quase) ao título não acrescenta nada
+  const norm = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  if (title && norm(t).startsWith(norm(title)) && t.length < title.length + 15) return null;
+  if (t.length > MAX_DESCRIPTION) {
+    const cut = t.slice(0, MAX_DESCRIPTION - 1);
+    const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "));
+    t = end > 80 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…";
+  }
+  return t;
+}
 const MAX_BYTES = 1_500_000;
 
 /** Bloqueia endereços internos (o servidor não deve buscar a própria rede) */
@@ -180,22 +232,34 @@ async function mercadoLivrePreview(url: URL): Promise<ProductPreview | null> {
   if (catalog) {
     const res = await fetch(`https://api.mercadolibre.com/products/${catalog}`, { headers, signal: AbortSignal.timeout(6000) });
     if (res.ok) {
-      const p = (await res.json()) as { name?: string; pictures?: { url: string }[]; buy_box_winner?: { price?: number } };
+      const p = (await res.json()) as {
+        name?: string;
+        pictures?: { url: string }[];
+        buy_box_winner?: { price?: number };
+        short_description?: { content?: string };
+      };
       return {
         title: p.name ?? null,
         price: toCents(p.buy_box_winner?.price),
         images: uniqueImages((p.pictures ?? []).map((x) => x.url?.replace(/^http:/, "https:"))),
+        description: shortDescription(p.short_description?.content, p.name ?? null),
       };
     }
   }
   if (item) {
-    const res = await fetch(`https://api.mercadolibre.com/items/MLB${item}`, { headers, signal: AbortSignal.timeout(6000) });
+    const [res, desc] = await Promise.all([
+      fetch(`https://api.mercadolibre.com/items/MLB${item}`, { headers, signal: AbortSignal.timeout(6000) }),
+      fetch(`https://api.mercadolibre.com/items/MLB${item}/description`, { headers, signal: AbortSignal.timeout(6000) })
+        .then((r) => (r.ok ? (r.json() as Promise<{ plain_text?: string }>) : null))
+        .catch(() => null),
+    ]);
     if (res.ok) {
       const i = (await res.json()) as { title?: string; price?: number; pictures?: { secure_url: string }[] };
       return {
         title: i.title ?? null,
         price: toCents(i.price),
         images: uniqueImages((i.pictures ?? []).map((x) => x.secure_url)),
+        description: shortDescription(desc?.plain_text, i.title ?? null),
       };
     }
   }
@@ -212,9 +276,11 @@ function cleanTitle(t: string | null): string | null {
 
 /** Lê nome, preço e foto da página de um produto (JSON-LD, Open Graph e metatags) */
 export async function fetchProductPreview(rawUrl: string): Promise<ProductPreview> {
-  let url = new URL(rawUrl);
+  let url = new URL(cleanProductUrl(rawUrl));
   const ml = await mercadoLivrePreview(url).catch(() => null);
   if (ml) return ml;
+  // Sem a API, o Mercado Livre não deixa ler a página: aproveita o nome que vem no próprio link
+  const mlSlug = /mercadoli[vb]re\.com/.test(url.hostname) ? titleFromMlSlug(url) : null;
 
   // Segue redirecionamentos manualmente para validar cada destino
   let res: Response | null = null;
@@ -235,7 +301,10 @@ export async function fetchProductPreview(rawUrl: string): Promise<ProductPrevie
     if (!next) break;
     url = new URL(next, url);
   }
-  if (!res || !res.ok) throw new Error(`A loja respondeu ${res?.status ?? "sem resposta"}`);
+  if (!res || !res.ok) {
+    if (mlSlug) return { title: mlSlug, price: null, images: [], description: null };
+    throw new Error(`A loja respondeu ${res?.status ?? "sem resposta"}`);
+  }
 
   const html = await readLimited(res);
   const product = jsonLdProduct(html);
@@ -257,5 +326,12 @@ export async function fetchProductPreview(rawUrl: string): Promise<ProductPrevie
     url,
   );
 
-  return { title: cleanTitle(title)?.slice(0, 140) ?? null, price, images };
+  const finalTitle = cleanTitle(title)?.slice(0, 140) ?? mlSlug;
+  const description = shortDescription(
+    (typeof product?.description === "string" ? product.description : null) ??
+      meta(html, "og:description", "twitter:description", "description"),
+    finalTitle,
+  );
+
+  return { title: finalTitle, price, images, description };
 }

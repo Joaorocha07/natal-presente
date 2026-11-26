@@ -1,13 +1,16 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { addWishFromForm, addWishFromProduct, removeWish, type FormState } from "@/app/actions";
+import { addWishFromForm, addWishFromProduct, previewWishLink, removeWish, type FormState } from "@/app/actions";
 import type { Wish } from "@/lib/data";
 import type { Product, SearchResult } from "@/lib/products";
 import { money } from "@/lib/format";
 import { FormMessage, Spinner, SubmitButton } from "./form-bits";
 import { WishThumb } from "./ui";
 import { CheckIcon, ExternalIcon, LinkIcon, PlusIcon, SearchIcon, TrashIcon } from "./icons";
+
+/** Aba "Colar link" desligada por enquanto (sem a API do Mercado Livre, os dados vêm incompletos) */
+const PASTE_LINK_ENABLED = false;
 
 const QUICK = [
   ["☕", "Caneca"],
@@ -58,7 +61,7 @@ export function MyWishlist({
             <p className="float text-4xl">🎄</p>
             <p className="mt-3 font-medium">Sua lista está vazia</p>
             <p className="mx-auto mt-1 max-w-56 text-sm text-ink/55">
-              Escolha uma sugestão ao lado ou cole o link de um produto.
+              Escolha uma das sugestões ao lado para começar.
             </p>
           </div>
         ) : (
@@ -82,6 +85,7 @@ export function MyWishlist({
 
       {/* Adicionar */}
       <section className="card rise min-w-0 overflow-hidden p-0" style={{ animationDelay: "180ms" }}>
+        {PASTE_LINK_ENABLED && (
         <div className="p-2">
           <div className="well grid grid-cols-2 gap-1 p-1">
             {(
@@ -104,12 +108,13 @@ export function MyWishlist({
             ))}
           </div>
         </div>
-        <div className="px-5 pb-6 pt-3 sm:px-6">
+        )}
+        <div className={`px-5 pb-6 sm:px-6 ${PASTE_LINK_ENABLED ? "pt-3" : "pt-6"}`}>
           {full ? (
             <p className="rounded-2xl bg-gold/12 px-4 py-3 text-sm">
               Você chegou ao limite de {max} opções. Remova uma para adicionar outra.
             </p>
-          ) : tab === "search" ? (
+          ) : tab === "search" || !PASTE_LINK_ENABLED ? (
             <ProductSearch groupId={groupId} budget={budget} wishes={wishes} quick={quick} />
           ) : (
             <ManualForm groupId={groupId} budget={budget} />
@@ -288,7 +293,7 @@ function ProductSearch({
         <div className="well mt-4 px-4 py-8 text-center text-sm text-ink/55">
           <p className="text-2xl">🔍</p>
           <p className="mt-2">Nada encontrado até {money(budget)}.</p>
-          <p>Tente outra palavra ou use a aba “Colar link”.</p>
+          <p>Tente outra palavra ou escolha uma das categorias.</p>
         </div>
       )}
     </div>
@@ -395,13 +400,67 @@ function ManualForm({ groupId, budget }: { groupId: string; budget: number }) {
   const [state, action] = useActionState(addWishFromForm.bind(null, groupId), undefined);
   const v = state?.values;
 
+  // Prévia do link: vale só para o estado atual do formulário (some depois de enviar)
+  const [preview, setPreview] = useState<{
+    forState: FormState;
+    images: string[];
+    found: { title: boolean; price: boolean; description: boolean };
+    priceCents: number | null;
+  } | null>(null);
+  const [image, setImage] = useState<string>("");
+  const [lookup, setLookup] = useState<{ forState: FormState; error: string } | null>(null);
+  const [loading, startLoading] = useTransition();
+  const lastUrl = useRef("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const shown = preview && preview.forState === state ? preview : null;
+  const lookupError = lookup && lookup.forState === state ? lookup.error : null;
+  const images = shown?.images ?? (v?.image ? [v.image] : []);
+  const selected = shown || v?.image ? image || v?.image || "" : "";
+
+  function setField(name: string, value: string) {
+    const el = formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
+    if (el) el.value = value;
+  }
+
+  function readLink(raw: string) {
+    const url = raw.trim();
+    if (!/^https?:\/\/\S+\.\S+/.test(url) || url === lastUrl.current) return;
+    lastUrl.current = url;
+    const forState = state;
+    startLoading(async () => {
+      const res = await previewWishLink(groupId, url);
+      if (!res.ok) {
+        setPreview(null);
+        setLookup({ forState, error: res.error });
+        return;
+      }
+      const p = res.preview;
+      setLookup(null);
+      setField("url", res.url);
+      lastUrl.current = res.url;
+      if (p.title) setField("title", p.title);
+      if (p.price) setField("price", (p.price / 100).toFixed(2).replace(".", ","));
+      if (p.description) setField("note", p.description);
+      setImage(p.images[0] ?? "");
+      setPreview({
+        forState,
+        images: p.images,
+        priceCents: p.price,
+        found: { title: Boolean(p.title), price: Boolean(p.price), description: Boolean(p.description) },
+      });
+    });
+  }
+
+  const overBudget = shown?.priceCents != null && shown.priceCents > budget;
+
   return (
     // key: remonta os campos com os valores devolvidos (erro) ou vazios (sucesso)
-    <form key={JSON.stringify(state ?? {})} action={action} className="space-y-4">
+    <form ref={formRef} key={JSON.stringify(state ?? {})} action={action} className="space-y-4">
       <div className="flex gap-3 rounded-2xl bg-pine-700/[0.07] px-4 py-3">
         <span className="text-lg">🔗</span>
         <p className="text-sm text-ink/65">
-          Achou algo no Mercado Livre, Amazon ou outra loja? Cole o link e informe o preço, até{" "}
+          Cole o link do produto e a gente preenche nome, foto, preço e descrição. Confira o preço: o limite é{" "}
           <strong className="font-semibold text-ink">{money(budget)}</strong>.
         </p>
       </div>
@@ -409,19 +468,94 @@ function ManualForm({ groupId, budget }: { groupId: string; budget: number }) {
         <label className="label" htmlFor="url">
           Link do produto <span className="font-normal text-ink/40">(opcional)</span>
         </label>
-        <div className="relative">
-          <LinkIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink/40" />
-          <input
-            id="url"
-            name="url"
-            defaultValue={v?.url}
-            type="url"
-            inputMode="url"
-            className="field pl-11"
-            placeholder="https://…"
-          />
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <LinkIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink/40" />
+            <input
+              id="url"
+              name="url"
+              defaultValue={v?.url}
+              type="url"
+              inputMode="url"
+              className="field pl-11"
+              placeholder="https://…"
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                // espera o valor colado entrar no campo
+                setTimeout(() => readLink(text), 0);
+              }}
+              onBlur={(e) => readLink(e.currentTarget.value)}
+            />
+          </div>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              lastUrl.current = "";
+              readLink((formRef.current?.elements.namedItem("url") as HTMLInputElement | null)?.value ?? "");
+            }}
+            className="btn h-12 shrink-0 border border-ink/12 bg-white px-4 text-ink/70 hover:border-ink/30"
+          >
+            {loading ? <Spinner /> : <SearchIcon className="size-4" />}
+            <span className="hidden sm:inline">{loading ? "Lendo…" : "Buscar dados"}</span>
+          </button>
         </div>
+        {loading && <p className="mt-2 text-xs text-ink/55">Lendo o produto na loja…</p>}
+        {lookupError && !loading && <p className="mt-2 text-xs text-berry">{lookupError}</p>}
       </div>
+
+      {(images.length > 0 || shown) && !loading && (
+        <div className="rounded-2xl border border-ink/[0.07] bg-white/70 p-3">
+          {images.length > 0 ? (
+            <>
+              <p className="mb-2 text-xs font-medium text-ink/55">
+                {images.length > 1 ? "Escolha a foto" : "Foto do produto"}
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {images.map((src) => (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setImage(src)}
+                    aria-pressed={selected === src}
+                    className={`relative size-16 shrink-0 overflow-hidden rounded-xl bg-white p-1 ring-2 transition ${
+                      selected === src ? "ring-berry" : "ring-ink/10 hover:ring-ink/25"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" referrerPolicy="no-referrer" className="size-full object-contain" />
+                    {selected === src && (
+                      <span className="absolute right-0.5 top-0.5 grid size-4 place-items-center rounded-full bg-berry text-cream">
+                        <CheckIcon className="size-3" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-ink/55">A loja não mostrou fotos deste produto.</p>
+          )}
+          {shown && (
+            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+              <Found ok={shown.found.title} label="Nome" />
+              <Found ok={shown.found.price} label="Preço" />
+              <Found ok={images.length > 0} label="Foto" />
+              <Found ok={shown.found.description} label="Descrição" />
+            </ul>
+          )}
+          {shown && !shown.found.price && (
+            <p className="mt-2 text-xs text-ink/60">Esta loja não informa o preço para outros sites: confira na página e digite abaixo.</p>
+          )}
+          {overBudget && (
+            <p className="mt-2 text-xs font-medium text-berry">
+              Este produto custa mais que o limite do grupo ({money(budget)}).
+            </p>
+          )}
+        </div>
+      )}
+      <input type="hidden" name="image" value={selected} />
+
       <div>
         <label className="label" htmlFor="title">
           O que é?
@@ -456,13 +590,14 @@ function ManualForm({ groupId, budget }: { groupId: string; budget: number }) {
         </div>
         <div>
           <label className="label" htmlFor="note">
-            Observação <span className="font-normal text-ink/40">(opcional)</span>
+            Descrição ou observação <span className="font-normal text-ink/40">(opcional)</span>
           </label>
-          <input
+          <textarea
             id="note"
             name="note"
             defaultValue={v?.note}
-            className="field"
+            rows={2}
+            className="field h-auto min-h-12 resize-y py-3 leading-snug"
             placeholder="Tamanho M, cor azul…"
             maxLength={200}
           />
@@ -473,5 +608,14 @@ function ManualForm({ groupId, budget }: { groupId: string; budget: number }) {
         <PlusIcon className="size-4" /> Adicionar à lista
       </SubmitButton>
     </form>
+  );
+}
+
+function Found({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <li className={`inline-flex items-center gap-1 ${ok ? "text-pine-700" : "text-ink/40"}`}>
+      {ok ? <CheckIcon className="size-3" /> : <span aria-hidden>–</span>} {label}
+      <span className="sr-only">{ok ? "encontrado" : "não encontrado"}</span>
+    </li>
   );
 }

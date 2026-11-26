@@ -7,7 +7,7 @@ import { refresh, updateTag } from "next/cache";
 import { createSession, destroySession, getUser, hashPassword, isAdmin, verifyPassword } from "@/lib/auth";
 import * as data from "@/lib/data";
 import { db } from "@/lib/db";
-import { fetchProductPreview, type ProductPreview } from "@/lib/product-preview";
+import { cleanProductUrl, fetchProductPreview, type ProductPreview } from "@/lib/product-preview";
 import { parseMoney, safeUrl, storeFromUrl, money } from "@/lib/format";
 
 export type FormState =
@@ -218,7 +218,8 @@ async function insertWish(groupId: string, input: WishInput): Promise<FormState>
   if (await data.countWishes(groupId, user.id) >= data.MAX_WISHES) {
     return { error: `Limite de ${data.MAX_WISHES} opções por pessoa.` };
   }
-  const url = safeUrl(input.url);
+  const raw = safeUrl(input.url);
+  const url = raw ? cleanProductUrl(raw) : null;
   await data.addWish(groupId, user.id, {
     title,
     price: Math.round(input.price),
@@ -233,12 +234,19 @@ async function insertWish(groupId: string, input: WishInput): Promise<FormState>
 
 /** Formulário manual */
 export async function addWishFromForm(groupId: string, _: FormState, fd: FormData): Promise<FormState> {
-  const values = { url: str(fd, "url"), title: str(fd, "title"), price: str(fd, "price"), note: str(fd, "note") };
+  const values = {
+    url: str(fd, "url"),
+    title: str(fd, "title"),
+    price: str(fd, "price"),
+    note: str(fd, "note"),
+    image: str(fd, "image"),
+  };
   if (values.url && !safeUrl(values.url)) return { error: "Link inválido (use http:// ou https://).", values };
   const res = await insertWish(groupId, {
     title: values.title,
     price: parseMoney(values.price),
     url: values.url || null,
+    image: values.image || null,
     note: values.note || null,
   });
   // Em caso de erro, devolve o que foi digitado para não perder o preenchimento
@@ -291,7 +299,7 @@ export async function addCatalogProduct(_: FormState, fd: FormData): Promise<For
     {
       title,
       price,
-      url,
+      url: cleanProductUrl(url),
       image: safeUrl(values.image),
       store: storeFromUrl(url),
       category,
@@ -308,18 +316,31 @@ export async function previewProductLink(
   rawUrl: string,
 ): Promise<{ ok: true; preview: ProductPreview } | { ok: false; error: string }> {
   await mustAdmin();
-  const url = safeUrl(rawUrl);
+  return readProductLink(rawUrl);
+}
+
+async function readProductLink(
+  rawUrl: string,
+): Promise<{ ok: true; preview: ProductPreview; url: string } | { ok: false; error: string }> {
+  const url = safeUrl(rawUrl.trim());
   if (!url) return { ok: false, error: "Cole um link válido (https://…)." };
   try {
     const preview = await fetchProductPreview(url);
     if (!preview.title && !preview.price && !preview.images.length) {
       return { ok: false, error: "A loja não mostrou os dados do produto. Preencha à mão." };
     }
-    return { ok: true, preview };
+    return { ok: true, preview, url: cleanProductUrl(url) };
   } catch (e) {
-    console.error("[admin] prévia do link:", e);
+    console.error("[prévia do link]", e);
     return { ok: false, error: "Não consegui abrir o link (a loja pode bloquear robôs). Preencha à mão." };
   }
+}
+
+/** Lista de desejos: lê nome, preço, fotos e descrição do link colado */
+export async function previewWishLink(groupId: string, rawUrl: string) {
+  const user = await mustUser();
+  if (!(await data.isMember(groupId, user.id))) return { ok: false as const, error: "Você não participa deste grupo." };
+  return readProductLink(rawUrl);
 }
 
 /** Tipo real da imagem pelos primeiros bytes (não confia na extensão nem no navegador) */
