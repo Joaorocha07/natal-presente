@@ -100,3 +100,20 @@ export const ShieldIcon = (p: P) => (
     <path d="m9 12 2 2 4-4" />
   </svg>
 );
+export const UserIcon = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+  </svg>
+);
+export const CrownIcon = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="m3 7 4.5 4L12 4l4.5 7L21 7l-2 12H5Z" />
+  </svg>
+);
+export const UserMinusIcon = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="9" cy="8" r="4" />
+    <path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1M16 11h6" />
+  </svg>
+);

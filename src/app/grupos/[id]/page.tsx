@@ -6,13 +6,13 @@ import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { getGroupForMember, listMembers } from "@/lib/data";
 import { firstName, formatDate, money } from "@/lib/format";
-import { deleteGroup, leaveGroup, updateGroup } from "@/app/actions";
+import { deleteGroup, leaveGroup, makeOrganizer, removeMember, updateGroup } from "@/app/actions";
 import { Avatar, BackLink, BudgetBadge, Container, PageSkeleton } from "@/components/ui";
 import { InviteShare } from "@/components/invite-share";
 import { GroupForm } from "@/components/group-form";
 import { ConfirmSubmit } from "@/components/form-bits";
 import { Snow } from "@/components/snow";
-import { ArrowRightIcon, CalendarIcon, GiftIcon, UsersIcon } from "@/components/icons";
+import { ArrowRightIcon, CalendarIcon, CrownIcon, GiftIcon, UserMinusIcon, UsersIcon } from "@/components/icons";
 
 export const metadata: Metadata = pageMeta(
   "Grupo de amigo oculto",
@@ -152,8 +152,62 @@ async function GroupView({
         )}
       </section>
 
+      {/* Organizador: gerenciar participantes */}
+      {isOwner && others.length > 0 && (
+        <section className="card mt-12 p-0">
+          <div className="flex items-center gap-3 p-5 sm:p-6">
+            <span className="chip3d grid size-11 shrink-0 place-items-center text-[#a8752d]">
+              <CrownIcon className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-display text-xl">Gerenciar participantes</h2>
+              <p className="text-sm text-ink/55">
+                Só você vê esta parte. Passe a organização para outra pessoa ou remova quem não participa mais.
+              </p>
+            </div>
+          </div>
+          <ul className="divide-y divide-ink/[0.06] border-t border-ink/[0.06]">
+            {others.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4 sm:px-6">
+                <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
+                  <Avatar id={m.id} name={m.name} src={m.avatar_url} size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{m.name}</p>
+                    <p className="text-xs text-ink/45">
+                      {m.wish_count
+                        ? `${m.wish_count} ${m.wish_count === 1 ? "opção" : "opções"} na lista`
+                        : "Lista vazia"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <form action={makeOrganizer.bind(null, id, m.id)}>
+                    <ConfirmSubmit
+                      message={`Passar a organização do grupo para ${m.name}? Você continua participando, mas deixa de poder editar o grupo e gerenciar as pessoas.`}
+                      className="btn h-9 gap-1.5 border border-gold/40 bg-gold/10 px-3 text-[13px] text-[#7a5c0f] hover:bg-gold/20"
+                    >
+                      <CrownIcon className="size-4" /> Tornar organizador
+                    </ConfirmSubmit>
+                  </form>
+                  <form action={removeMember.bind(null, id, m.id)}>
+                    <ConfirmSubmit
+                      message={`Remover ${m.name} do grupo? A lista de desejos dessa pessoa neste grupo será apagada.`}
+                      className="btn h-9 gap-1.5 border border-berry/25 px-3 text-[13px] text-berry hover:bg-berry/5"
+                    >
+                      <UserMinusIcon className="size-4" />
+                      <span className="hidden sm:inline">Remover</span>
+                      <span className="sr-only sm:hidden">Remover {m.name}</span>
+                    </ConfirmSubmit>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Configurações */}
-      <section className="mt-12">
+      <section className={isOwner && others.length > 0 ? "mt-6" : "mt-12"}>
         {isOwner ? (
           <details className="card group p-0">
             <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-medium sm:p-6">

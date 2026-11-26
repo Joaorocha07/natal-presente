@@ -59,12 +59,17 @@ async function UserNav() {
     <nav className="flex items-center gap-2 sm:gap-3">
       <HeaderTabs admin={isAdmin(user)} />
       <div className="flex items-center gap-1 rounded-full bg-white/[0.06] py-1 pl-1 pr-1 ring-1 ring-white/10">
-        <span title={user.name} className="flex items-center gap-2">
+        <Link
+          href="/perfil"
+          title="Meu perfil"
+          aria-label={`Meu perfil (${user.name})`}
+          className="flex items-center gap-2 rounded-full transition hover:bg-white/10 md:pr-1"
+        >
           <Avatar id={user.id} name={user.name} src={user.avatar_url} size="sm" className="ring-2 ring-gold/50" />
           <span className="hidden max-w-28 truncate pr-1 text-sm font-medium text-cream/85 md:block">
             {firstName(user.name)}
           </span>
-        </span>
+        </Link>
         <LogoutButton
           action={logout}
           label="Sair da conta"

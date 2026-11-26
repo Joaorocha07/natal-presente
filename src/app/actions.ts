@@ -167,6 +167,33 @@ export async function leaveGroup(groupId: string) {
   redirect("/grupos");
 }
 
+/** Organizador remove um participante (e a lista dele) do grupo */
+export async function removeMember(groupId: string, memberId: string) {
+  const user = await mustUser();
+  await data.removeMember(groupId, user.id, memberId);
+  refresh();
+}
+
+/** Organizador passa a organização do grupo para outro participante */
+export async function makeOrganizer(groupId: string, memberId: string) {
+  const user = await mustUser();
+  await data.transferOwnership(groupId, user.id, memberId);
+  refresh();
+}
+
+// ---------------------------------------------------------------- perfil
+
+export async function updateProfile(_: FormState, fd: FormData): Promise<FormState> {
+  const user = await mustUser();
+  const name = str(fd, "name").replace(/\s+/g, " ");
+  if (name.length < 2) return { error: "O nome precisa de pelo menos 2 letras." };
+  if (name.length > 60) return { error: "Use no máximo 60 caracteres." };
+  if (name === user.name) return { ok: "Nada mudou por aqui." };
+  await data.updateUserName(user.id, name);
+  refresh();
+  return { ok: "Nome atualizado! 🎄" };
+}
+
 // ---------------------------------------------------------------- lista de desejos
 
 export type WishInput = {

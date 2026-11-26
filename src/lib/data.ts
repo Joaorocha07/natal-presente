@@ -166,6 +166,35 @@ export async function leaveGroup(groupId: string, userId: string) {
   must(await db().from("memberships").delete().eq("group_id", groupId).eq("user_id", userId));
 }
 
+/**
+ * Organizador tira alguém do grupo (a lista dessa pessoa sai junto).
+ * Só remove se quem pede for o dono e o alvo não for o próprio dono.
+ */
+export async function removeMember(groupId: string, ownerId: string, memberId: string): Promise<boolean> {
+  if (!isUuid(groupId) || !isUuid(memberId) || memberId === ownerId) return false;
+  const group = await getGroupForMember(groupId, ownerId);
+  if (!group || group.owner_id !== ownerId) return false;
+  const deleted = must(
+    await db().from("memberships").delete().eq("group_id", groupId).eq("user_id", memberId).select("user_id"),
+  );
+  return (deleted?.length ?? 0) > 0;
+}
+
+/** Passa o papel de organizador para outro participante do grupo. */
+export async function transferOwnership(groupId: string, ownerId: string, newOwnerId: string): Promise<boolean> {
+  if (!isUuid(groupId) || !isUuid(newOwnerId) || newOwnerId === ownerId) return false;
+  if (!(await isMember(groupId, newOwnerId))) return false;
+  const updated = must(
+    await db()
+      .from("groups")
+      .update({ owner_id: newOwnerId })
+      .eq("id", groupId)
+      .eq("owner_id", ownerId) // só o organizador atual consegue passar adiante
+      .select("id"),
+  );
+  return (updated?.length ?? 0) > 0;
+}
+
 // ---------------------------------------------------------------- membros
 
 export async function listMembers(groupId: string): Promise<Member[]> {
@@ -254,6 +283,20 @@ export async function createUser(
       .single(),
   ) as { id: string };
   return row.id;
+}
+
+export async function updateUserName(userId: string, name: string) {
+  must(await db().from("users").update({ name }).eq("id", userId));
+}
+
+/** Grupos que a pessoa participa e quantos ela organiza (para a página de perfil). */
+export async function getProfileStats(userId: string) {
+  const [member, owner, wishes] = await Promise.all([
+    db().from("memberships").select("*", { count: "exact", head: true }).eq("user_id", userId),
+    db().from("groups").select("*", { count: "exact", head: true }).eq("owner_id", userId),
+    db().from("wishes").select("*", { count: "exact", head: true }).eq("user_id", userId),
+  ]);
+  return { groups: member.count ?? 0, organizing: owner.count ?? 0, wishes: wishes.count ?? 0 };
 }
 
 /** Atualiza a foto a cada login com Google (a pessoa pode ter trocado a foto lá). */

@@ -7,7 +7,7 @@ import { listGroupsForUser, MAX_WISHES, type GroupSummary } from "@/lib/data";
 import { countdownLabel, daysUntil, firstName, formatDate } from "@/lib/format";
 import { Avatar, BudgetBadge, Container, PageSkeleton } from "@/components/ui";
 import { VillageArt } from "@/components/village-art";
-import { ArrowRightIcon, CalendarIcon, CheckIcon, GiftIcon, PlusIcon, UsersIcon } from "@/components/icons";
+import { ArrowRightIcon, CalendarIcon, CheckIcon, GiftIcon, PencilIcon, PlusIcon, UsersIcon } from "@/components/icons";
 
 export const metadata: Metadata = pageMeta(
   "Meus grupos",
@@ -56,6 +56,12 @@ async function Groups() {
             <p className="eyebrow text-gold-soft">Meu cantinho de Natal 🎄</p>
             <h1 className="mt-1.5 font-display text-3xl tracking-tight sm:text-4xl">Olá, {firstName(user.name)}!</h1>
             <p className="mt-1 truncate text-sm text-cream/55">{user.email}</p>
+            <Link
+              href="/perfil"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-gold-soft underline-offset-4 hover:underline"
+            >
+              <PencilIcon className="size-3.5" /> Editar perfil
+            </Link>
           </div>
           <Link href="/grupos/novo" className="btn-gold self-start sm:self-center">
             <PlusIcon className="size-4" /> Novo grupo
